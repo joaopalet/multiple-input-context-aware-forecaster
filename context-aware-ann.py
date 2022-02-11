@@ -545,10 +545,10 @@ if __name__ == '__main__':
 
     # --------------------------------------------------------------------------------------------
 
-    # Retrieve dataframe containing target variable
+    # Retrieve hourly dataframe containing target variable time series
     events = None
 
-    # Retrieve dataframe containing weather
+    # Retrieve hourly dataframe containing weather variables time series
     meteo = None
 
     # Test
