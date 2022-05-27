@@ -546,10 +546,12 @@ if __name__ == '__main__':
     # --------------------------------------------------------------------------------------------
 
     # Retrieve hourly dataframe containing target variable time series
-    events = None
+    with open('./events_df', 'rb') as fp:
+        events = pickle.load(fp)
 
     # Retrieve hourly dataframe containing weather variables time series
-    meteo = None
+    with open('./meteo_df', 'rb') as fp:
+        meteo = pickle.load(fp)
 
     # Test
     for instance_moving_step in instance_moving_steps:
