@@ -51,6 +51,8 @@ class Context_Aware_Ann:
         self.num_datasets = None  # number of datasets
         self.activation = None  # activation function
         self.num_units = ''  # num units if mlp
+        self.loss = ''  # loss function
+        self.weather_noise = None  # if should introduce noise on prospective weather
         # X and Y
         self.x_train = None
         self.x2_train = None
@@ -76,7 +78,8 @@ class Context_Aware_Ann:
     def training(self, series_df, output_vars, interval_minute=None, window_size=72, moving_step=1,
                  dataset_dir_name=None,
                  h=1, lag=2, batch_size=8, l_r=10e-3, reg_value=0.1, reg_type=0, load_dataset=None, epochs=400,
-                 loss_function='mse', instance_moving_step=1, stateful=False, in_days=False, mask='univariate'):
+                 loss_function='mse', instance_moving_step=1, stateful=False, in_days=False, mask='univariate',
+                 weather_noise = False):
 
         self.series_df = series_df
         self.h = h
@@ -86,6 +89,8 @@ class Context_Aware_Ann:
         self.window_size = window_size
         self.moving_step = moving_step
         self.batch_size = batch_size
+        self.weather_noise = weather_noise
+        self.loss = loss_function
 
         self.series = self.split_dataset(in_days=in_days, window_size=window_size, moving_step=moving_step, lag=lag,
                                          h=h, train_val_size=0.8, instance_moving_step=instance_moving_step)
@@ -163,7 +168,11 @@ class Context_Aware_Ann:
     # Save results
     # ------------
     def save_results(self, dataset_dir_name=None, mask='univariate', save_files=True, display=False):
-        file_name = f'{mask}_{model_type}_lag{self.lag}_h{self.h}_batch{self.batch_size}'
+        file_name = f'{mask}_{model_type}_lag{self.lag}_h{self.h}_batch{self.batch_size}_{self.loss}'
+        
+        if self.weather_noise:
+            file_name += '_WEATHER_NOISE'
+            
         print('### File name: ', file_name)
 
         # self.plot_predictions(file_name, dataset_dir_name=dataset_dir_name, save_files=save_files, display=display)
@@ -350,8 +359,19 @@ class Context_Aware_Ann:
             x_data.append(sub_dataset.iloc[begin_index:begin_index + lag].to_numpy())
             y_data.append(
                 sub_dataset.iloc[begin_index + lag:end_index][self.output_vars].to_numpy().flatten())
-            x2_data.append(
-                sub_dataset.iloc[begin_index + lag:end_index].drop(self.output_vars, axis=1).to_numpy())
+            
+            prospective = sub_dataset.iloc[begin_index + lag:end_index].drop(self.output_vars, axis=1)
+
+            if self.weather_noise:
+                if 'temp' in prospective.columns:
+                    temp_noise = np.random.normal(0, 0.65, h)
+                    prospective['temp'] = prospective['temp'] + temp_noise
+
+                if 'rh' in prospective.columns:
+                    rh_noise = np.random.normal(0, 5, h)
+                    prospective['rh'] = prospective['rh'] + rh_noise
+
+            x2_data.append(prospective.to_numpy())
 
         train_val_len = int(len(x_data) * train_val_size)
 
@@ -542,6 +562,10 @@ if __name__ == '__main__':
     batches = [8]   # batch sizes to consider
 
     model_types = ['context_lstms']  # model types to consider
+    
+    loss_functions = ['mse']  # loss functions to consider
+    
+    weather_noise = [True, False]  # consider noise in prospective weather
 
     # --------------------------------------------------------------------------------------------
 
@@ -602,23 +626,26 @@ if __name__ == '__main__':
                 for h in hs:
                     for lag in lags:
                         for batch in batches:
-                            # Print series
-                            print('\n### Dataframe: ', df.head())
-                            print('\n### Number of data points: ', len(df))
+                            for loss in loss_functions:
+                                for wn in weather_noise:
+                                    # Print series
+                                    print('\n### Dataframe: ', df.head())
+                                    print('\n### Number of data points: ', len(df))
 
-                            # Train
-                            forecaster = Context_Aware_Ann(model_type)
-                            scores = forecaster.training(series_df=df, output_vars=['count'], h=h, lag=lag,
-                                                  window_size=24 * 7 * 6,  # size of each dataset
-                                                  moving_step=24 * 7,  # step size between datasets
-                                                  instance_moving_step=instance_moving_step,  # step size between input-output instances within a dataset
-                                                  dataset_dir_name=dataset_dir_name, mask=mask, batch_size=batch)
+                                    # Train
+                                    forecaster = Context_Aware_Ann(model_type)
+                                    scores = context_lstm.training(series_df=df, output_vars=['count'], h=h, lag=lag,
+                                                                   window_size=24*365,
+                                                                   moving_step=24*7*6,
+                                                                   instance_moving_step=instance_moving_step,
+                                                                   dataset_dir_name=dataset_dir_name, mask=mask,
+                                                                   loss_function=loss, weather_noise=wn)
 
-                            # Print scores
-                            print(f'\n### Mask: {mask}')
-                            print(f'\n### Horizon: {h}')
-                            print(f'\n### Lag: {lag}')
-                            print(f'\n### Batch size: {batch}')
-                            print('\n### Scores:')
-                            print(scores)
-                            print('\n\n\n\n\n')
+                                    # Print scores
+                                    print(f'\n### Mask: {mask}')
+                                    print(f'\n### Horizon: {h}')
+                                    print(f'\n### Lag: {lag}')
+                                    print(f'\n### Batch size: {batch}')
+                                    print('\n### Scores:')
+                                    print(scores)
+                                    print('\n\n\n\n\n')
