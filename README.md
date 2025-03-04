@@ -1,6 +1,6 @@
 # Multiple-Input Neural Networks for Time Series Forecasting Incorporating Historical and Prospective Context
 
-This repository is the implementation of [Multiple-Input Neural Networks for Time Series Forecasting Incorporating Historical and Prospective Context](https://FIXME). 
+This repository is the implementation of [Multiple-Input Neural Networks for Time Series Forecasting Incorporating Historical and Prospective Context](https://link.springer.com/article/10.1007/s10618-023-00984-y). 
 
 
 ## Abstract
